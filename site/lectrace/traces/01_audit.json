@@ -3,14 +3,14 @@
   "metadata": {
     "title": "01_audit",
     "module": "01_audit",
-    "built_at": "2026-10-25T11:38:31.341557+00:00",
-    "source_hash": "d6094f13962da86a359fb8066c46b5bdb018021641a7f15e18127ac4e41f6398",
+    "built_at": "2026-10-25T12:24:56.756086+00:00",
+    "source_hash": "024b79a08a519c2587e98eb9306891beebb410b81d1f0d8e7af35fe782addae6",
     "python_version": "3.12.4",
     "lectrace_version": "1.1.30",
     "error": null
   },
   "files": {
-    "01_audit.py": "\"\"\"Calibration Is Not Enough \u2014 a 10-minute execution walkthrough.\n\nRun as a plain script:      python 01_audit.py\nOpen the interactive viewer: lectrace serve 01_audit.py\nBuild a static site:         lectrace build --output _site\n\nPresenter notes live in note() calls; press N in the viewer to reveal them.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport sys\nfrom pathlib import Path\n\nimport numpy as np\nimport torch\nimport yaml\nfrom scipy.special import expit\n\nfrom lectrace import image, note, text\n\nROOT = Path(__file__).resolve().parent\nPROJECT = ROOT.parent\nRUN = PROJECT / \"result\" / \"runs\" / \"seed_42\"\nsys.path.insert(0, str(PROJECT / \"code\" / \"src\"))\n\nCLASSES = [\"NORM\", \"MI\", \"STTC\", \"CD\", \"HYP\"]\nTEMPERATURE = 1.1868\nTHRESHOLD = 0.4264\nTARGET_COVERAGE = 0.80\n\n\nclass Array:\n    \"\"\"Compact viewer representation for arrays that would otherwise flood the panel.\"\"\"\n\n    def __init__(self, value):\n        self.value = np.asarray(value)\n\n    def __lectrace__(self):\n        v = self.value\n        return {\n            \"shape\": v.shape,\n            \"dtype\": str(v.dtype),\n            \"min\": round(float(v.min()), 3),\n            \"max\": round(float(v.max()), 3),\n            \"mean\": round(float(v.mean()), 3),\n        }\n\n\ndef main() -> None:\n    title()\n    text(\n        \"> An AI-ECG model used for triage must decide **which records to issue and which to defer**. \"\n        \"Papers report AUROC and ECE, and ECE is usually read as evidence of trustworthiness. \"\n        \"This project tests that reading on PTB-XL with a frozen protocol.\"\n    )\n    text(\n        \"| quantity | before | after |\\n\"\n        \"|---|---|---|\\n\"\n        \"| test ECE (15 bins) | 0.0238 | **0.0068** |\\n\"\n        \"| AURC (entropy score) | 0.1900 | **0.1914** |\\n\"\n        \"| accepted any-label error @ 80% coverage | 30.98% | **31.23%** |\"\n    )\n    text(\n        \"Calibration improves by a factor of 3.5 and the frontier does not move. \"\n        \"The same direction holds in all three seeds we trained (+0.18, +0.37, +0.46 points). \"\n        \"The next four states show where that error actually lives.\"\n    )\n    note(\n        \"Minutes 0-2. Frame the clinical decision, not the metric: the model is a triage layer, \"\n        \"so the quantity that matters is the error rate among records it chose to issue. \"\n        \"Then show the three-row table and let the dissociation land before explaining it.\"\n    )\n\n    state_1_input()\n    logits = state_2_forward()\n    state_3_score(logits)\n    state_4_budget()\n    closing()\n\n\ndef title() -> None:\n    text(\"# Calibration Is Not Enough\")\n    text(\"**A three-level audit of selective prediction for multi-label ECG classification**\")\n    text(\"Zhengyu \u00b7 MD6329 Deep Learning \u00b7 NTU\")\n\n\ndef state_1_input() -> None:\n    text(\"## State 1 \u2014 what the network actually receives\")\n    raw = Array(np.load(ROOT / \"demo\" / \"ecg_sample.npy\"))\n    text(\"One held-out record (ECG ID 63): 12 leads \u00d7 1,000 samples at 100 Hz, i.e. 10 seconds.\")\n    lead_mean = raw.value.mean(axis=1, keepdims=True)\n    lead_std = raw.value.std(axis=1, keepdims=True)\n    normalised = Array((raw.value - lead_mean) / (lead_std + 1e-6))\n    batch = torch.from_numpy(normalised.value).unsqueeze(0)\n    text(\"Each lead is z-scored on its own, then a batch dimension is added.\")\n    note(\n        \"What changes: millivolts become lead-relative units. Why it matters: the network never sees \"\n        \"absolute amplitude, only morphology \u2014 which is why the same model transfers across devices \"\n        \"with different gain settings. Press N to see this note during the talk.\"\n    )\n\n\ndef state_2_forward() -> None:\n    text(\"## State 2 \u2014 the forward pass, layer by layer\")\n    model = load_model()  # @stepover\n    x = torch.from_numpy(\n        np.load(ROOT / \"demo\" / \"ecg_sample.npy\")\n    ).unsqueeze(0)\n    text(\"Three residual blocks, each halving the sequence length while keeping 32 channels.\")\n    with torch.no_grad():\n        h = model.stem(x)\n        h = model.encoder[0](h)\n        h = model.encoder[1](h)\n        h = model.encoder[2](h)\n        pooled = model.pool(h).squeeze(-1)\n        logits = model.head(pooled)\n        probs = torch.sigmoid(logits)\n    text(\"Global average pooling collapses time; the linear head emits one logit per superclass.\")\n    note(\n        \"This is the 'how the neural program works' state. Point at the shape column: 12x1000 -> 32x500 \"\n        \"-> 32x500 -> 32x250 -> 32x125 -> 32 -> 5. The encoder never changes channel width, so all 52k \"\n        \"parameters are spent on temporal filters, not on a deep feature hierarchy.\"\n    )\n    return logits\n\n\ndef state_3_score(logits) -> None:\n    text(\"## State 3 \u2014 from logits to an abstention score\")\n    text(\"The five logits from State 2 are rescaled, then turned into a single uncertainty number.\")\n    calibrated = logits / TEMPERATURE\n    p = torch.sigmoid(calibrated)\n    label_entropy = -(p * torch.log(p) + (1 - p) * torch.log(1 - p))\n    score = label_entropy.mean()\n    decision = \"accept\" if float(score) <= THRESHOLD else \"defer\"\n    text(\n        \"Temperature scaling divides every logit by **T = 1.1868**, fitted on fold 9. \"\n        \"The record-level score is the mean binary entropy over the five labels.\"\n    )\n    text(f\"Score **{float(score):.4f}** against threshold **{THRESHOLD}** \u2192 **{decision}**.\")\n    note(\n        \"Make the invariance concrete: T changes the number, not the ordering, because it is the same \"\n        \"positive scalar for every record. The threshold absorbs the rescaling. That is why ECE can fall \"\n        \"by 71% while the accepted set stays essentially the same.\"\n    )\n\n\ndef state_4_budget() -> None:\n    text(\"## State 4 \u2014 how much could any score buy?\")\n    data = np.load(ROOT / \"demo\" / \"test_logits.npz\")\n    y = data[\"labels\"]\n    p = expit(data[\"logits\"])\n    correct = np.all((p > 0.5) == (y > 0.5), axis=1).astype(float)\n    confidence = np.maximum(p, 1 - p).mean(axis=1)\n    k = int(TARGET_COVERAGE * len(y))\n    oracle_order = np.argsort(-correct)\n    model_order = np.argsort(-confidence)\n    risk_oracle = 1 - correct[oracle_order][:k].mean()\n    risk_model = 1 - correct[model_order][:k].mean()\n    budget = risk_model - risk_oracle\n    text(\n        f\"On {len(y)} held-out records at 80% coverage: perfect ordering would reach \"\n        f\"**{100 * risk_oracle:.1f}%** error, the model reaches **{100 * risk_model:.1f}%**.\"\n    )\n    text(\n        f\"The entire budget available to any abstention score is **{100 * budget:.1f} percentage points**. \"\n        \"Post-hoc scores recover 1.1 of them; a learned head adds 0.4 more, within noise. \"\n        \"The rest needs a scorer that reads the model's internals, not its probabilities.\"\n    )\n    image(str(ROOT / \"assets\" / \"fig4.png\"), width=620)\n    note(\n        \"This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress. \"\n        \"With it we can be precise about what is exhausted: post-hoc abstention scores recover 1.5 of \"\n        \"the 6.9 points, so that family is nearly spent, while 5.4 points remain open to a scorer that \"\n        \"reads features. The 23 points of oracle error are a different quantity entirely - they sit in \"\n        \"model discrimination and label ambiguity, and no ranking can remove them.\"\n    )\n\n\ndef closing() -> None:\n    text(\"## What this means clinically\")\n    text(\n        \"| decision unit | label coverage | label error | fully auto-issued |\\n\"\n        \"|---|---|---|---|\\n\"\n        \"| record-level | 79.6% | 9.90% | 79.6% |\\n\"\n        \"| label-level | 76.4% | **5.61%** | **39.8%** |\"\n    )\n    text(\n        \"Changing the **decision unit** moves the operating point far more than changing the score. \"\n        \"A ward that can review individual labels gets a different system from one that can only \"\n        \"accept or reject whole records \u2014 and no calibration metric reveals that difference.\"\n    )\n    text(\n        \"**Report the frontier, the error target, and the granularity \u2014 not a single coverage point \"\n        \"next to an ECE.**\"\n    )\n    note(\n        \"Close on the clinical interpretation, not the numbers: 5.6% label error sounds better than 9.9%, \"\n        \"but only 40% of records can then be issued untouched. Whether that trade is good depends on the \"\n        \"review workflow, which is a hospital decision, not a modelling one.\"\n    )\n\n\ndef load_model():\n    cfg = yaml.safe_load((RUN / \"config.yaml\").read_text(encoding=\"utf-8\"))\n    from ptbxl.model import build_model\n\n    model = build_model(cfg[\"model\"], num_classes=len(CLASSES))\n    state = torch.load(RUN / \"best.pt\", map_location=\"cpu\", weights_only=True)\n    model.load_state_dict(state[\"model\"])\n    model.eval()\n    return model\n\n\nif __name__ == \"__main__\":\n    main()\n"
+    "01_audit.py": "\"\"\"Calibration Is Not Enough \u2014 a 10-minute execution walkthrough.\n\nRun as a plain script:      python 01_audit.py\nOpen the interactive viewer: lectrace serve 01_audit.py\nBuild a static site:         lectrace build --output _site\n\nPresenter notes live in note() calls; press N in the viewer to reveal them.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nimport sys\nfrom pathlib import Path\n\nimport numpy as np\nimport torch\nimport yaml\nfrom scipy.special import expit\n\nfrom lectrace import image, note, text\n\nROOT = Path(__file__).resolve().parent\nPROJECT = ROOT.parent\nRUN = PROJECT / \"result\" / \"runs\" / \"seed_42\"\nsys.path.insert(0, str(PROJECT / \"code\" / \"src\"))\n\nCLASSES = [\"NORM\", \"MI\", \"STTC\", \"CD\", \"HYP\"]\nTEMPERATURE = 1.1868\nTHRESHOLD = 0.4264\nTARGET_COVERAGE = 0.80\n\n\nclass Array:\n    \"\"\"Compact viewer representation for arrays that would otherwise flood the panel.\"\"\"\n\n    def __init__(self, value):\n        self.value = np.asarray(value)\n\n    def __lectrace__(self):\n        v = self.value\n        return {\n            \"shape\": v.shape,\n            \"dtype\": str(v.dtype),\n            \"min\": round(float(v.min()), 3),\n            \"max\": round(float(v.max()), 3),\n            \"mean\": round(float(v.mean()), 3),\n        }\n\n\ndef main() -> None:\n    title()\n    text(\n        \"> An AI-ECG model used for triage must decide **which records to issue and which to defer**. \"\n        \"Papers report AUROC and ECE, and ECE is usually read as evidence of trustworthiness. \"\n        \"This project tests that reading on PTB-XL with a frozen protocol.\"\n    )\n    text(\n        \"| quantity | before | after |\\n\"\n        \"|---|---|---|\\n\"\n        \"| test ECE (15 bins) | 0.0238 | **0.0068** |\\n\"\n        \"| AURC (entropy score) | 0.1900 | **0.1914** |\\n\"\n        \"| accepted any-label error @ 80% coverage | 30.98% | **31.23%** |\"\n    )\n    text(\n        \"Calibration improves by a factor of 3.5 and the frontier does not move. \"\n        \"The same direction holds in all three seeds we trained (+0.18, +0.37, +0.46 points). \"\n        \"The next four states show where that error actually lives.\"\n    )\n    note(\n        \"Minutes 0-2. Frame the clinical decision, not the metric: the model is a triage layer, \"\n        \"so the quantity that matters is the error rate among records it chose to issue. \"\n        \"Then show the three-row table and let the dissociation land before explaining it.\"\n    )\n\n    state_1_input()\n    logits = state_2_forward()\n    state_3_score(logits)\n    state_4_budget()\n    closing()\n\n\ndef title() -> None:\n    text(\"# Calibration Is Not Enough\")\n    text(\"**A three-level audit of selective prediction for multi-label ECG classification**\")\n    text(\"Zhengyu \u00b7 MD6329 Deep Learning \u00b7 NTU\")\n\n\ndef state_1_input() -> None:\n    text(\"## State 1 \u2014 what the network actually receives\")\n    raw = Array(np.load(ROOT / \"demo\" / \"ecg_sample.npy\"))\n    text(\"One held-out record (ECG ID 63): 12 leads \u00d7 1,000 samples at 100 Hz, i.e. 10 seconds.\")\n    lead_mean = raw.value.mean(axis=1, keepdims=True)\n    lead_std = raw.value.std(axis=1, keepdims=True)\n    normalised = Array((raw.value - lead_mean) / (lead_std + 1e-6))\n    batch = torch.from_numpy(normalised.value).unsqueeze(0)\n    text(\"Each lead is z-scored on its own, then a batch dimension is added.\")\n    note(\n        \"What changes: millivolts become lead-relative units. Why it matters: the network never sees \"\n        \"absolute amplitude, only morphology \u2014 which is why the same model transfers across devices \"\n        \"with different gain settings. Press N to see this note during the talk.\"\n    )\n\n\ndef state_2_forward() -> None:\n    text(\"## State 2 \u2014 the forward pass, layer by layer\")\n    model = load_model()  # @stepover\n    x = torch.from_numpy(\n        np.load(ROOT / \"demo\" / \"ecg_sample.npy\")\n    ).unsqueeze(0)\n    text(\"Three residual blocks, each halving the sequence length while keeping 32 channels.\")\n    with torch.no_grad():\n        h = model.stem(x)\n        h = model.encoder[0](h)\n        h = model.encoder[1](h)\n        h = model.encoder[2](h)\n        pooled = model.pool(h).squeeze(-1)\n        logits = model.head(pooled)\n        probs = torch.sigmoid(logits)\n    text(\"Global average pooling collapses time; the linear head emits one logit per superclass.\")\n    note(\n        \"This is the 'how the neural program works' state. Point at the shape column: 12x1000 -> 32x500 \"\n        \"-> 32x500 -> 32x250 -> 32x125 -> 32 -> 5. The encoder never changes channel width, so all 52k \"\n        \"parameters are spent on temporal filters, not on a deep feature hierarchy.\"\n    )\n    return logits\n\n\ndef state_3_score(logits) -> None:\n    text(\"## State 3 \u2014 from logits to an abstention score\")\n    text(\"The five logits from State 2 are rescaled, then turned into a single uncertainty number.\")\n    calibrated = logits / TEMPERATURE\n    p = torch.sigmoid(calibrated)\n    label_entropy = -(p * torch.log(p) + (1 - p) * torch.log(1 - p))\n    score = label_entropy.mean()\n    decision = \"accept\" if float(score) <= THRESHOLD else \"defer\"\n    text(\n        \"Temperature scaling divides every logit by **T = 1.1868**, fitted on fold 9. \"\n        \"The record-level score is the mean binary entropy over the five labels.\"\n    )\n    text(f\"Score **{float(score):.4f}** against threshold **{THRESHOLD}** \u2192 **{decision}**.\")\n    note(\n        \"Make the invariance concrete: T changes the number, not the ordering, because it is the same \"\n        \"positive scalar for every record. The threshold absorbs the rescaling. That is why ECE can fall \"\n        \"by 71% while the accepted set stays essentially the same.\"\n    )\n\n\ndef state_4_budget() -> None:\n    text(\"## State 4 \u2014 how much could any score buy?\")\n    data = np.load(ROOT / \"demo\" / \"test_logits.npz\")\n    y = data[\"labels\"]\n    p = expit(data[\"logits\"])\n    correct = np.all((p > 0.5) == (y > 0.5), axis=1).astype(float)\n    confidence = np.maximum(p, 1 - p).mean(axis=1)\n    k = int(TARGET_COVERAGE * len(y))\n    oracle_order = np.argsort(-correct)\n    model_order = np.argsort(-confidence)\n    risk_oracle = 1 - correct[oracle_order][:k].mean()\n    risk_model = 1 - correct[model_order][:k].mean()\n    budget = risk_model - risk_oracle\n    text(\n        f\"On {len(y)} held-out records at 80% coverage: perfect ordering would reach \"\n        f\"**{100 * risk_oracle:.1f}%** error, the model reaches **{100 * risk_model:.1f}%**.\"\n    )\n    text(\n        f\"The entire budget available to any abstention score is **{100 * budget:.1f} percentage points**. \"\n        \"Post-hoc scores recover 1.1 of them; a learned head adds 0.4 more, within noise. \"\n        \"The rest needs a scorer that reads the model's internals, not its probabilities.\"\n    )\n    image(str(ROOT / \"assets\" / \"fig4.png\"), width=620)\n    note(\n        \"This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress. \"\n        \"With it we can be precise about what is exhausted: post-hoc scores recover 0.17 of the 6.5 points, \"\n        \"ensembling adds the same 0.17, and a learned head another 0.40 - so that family is nearly spent, \"\n        \"while about 5.7 points remain open to a scorer that reads features. The 23.6 points of oracle \"\n        \"error are a different quantity entirely: they sit in model discrimination and label ambiguity, \"\n        \"and no ranking can remove them.\"\n    )\n\n\ndef closing() -> None:\n    text(\"## What this means clinically\")\n    text(\n        \"| decision unit | label coverage | label error | fully auto-issued |\\n\"\n        \"|---|---|---|---|\\n\"\n        \"| record-level | 79.6% | 9.90% | 79.6% |\\n\"\n        \"| label-level | 76.4% | **5.61%** | **39.8%** |\"\n    )\n    text(\n        \"Changing the **decision unit** moves the operating point far more than changing the score. \"\n        \"A ward that can review individual labels gets a different system from one that can only \"\n        \"accept or reject whole records \u2014 and no calibration metric reveals that difference.\"\n    )\n    text(\n        \"**Report the frontier, the error target, and the granularity \u2014 not a single coverage point \"\n        \"next to an ECE.**\"\n    )\n    note(\n        \"Close on the clinical interpretation, not the numbers: 5.6% label error sounds better than 9.9%, \"\n        \"but only 40% of records can then be issued untouched. Whether that trade is good depends on the \"\n        \"review workflow, which is a hospital decision, not a modelling one.\"\n    )\n\n\ndef load_model():\n    cfg = yaml.safe_load((RUN / \"config.yaml\").read_text(encoding=\"utf-8\"))\n    from ptbxl.model import build_model\n\n    model = build_model(cfg[\"model\"], num_classes=len(CLASSES))\n    state = torch.load(RUN / \"best.pt\", map_location=\"cpu\", weights_only=True)\n    model.load_state_dict(state[\"model\"])\n    model.eval()\n    return model\n\n\nif __name__ == \"__main__\":\n    main()\n"
   },
   "hidden_line_numbers": {
     "01_audit.py": [
@@ -60,22 +60,23 @@
       176,
       177,
       178,
-      184,
+      179,
       185,
       186,
       187,
       188,
-      190,
+      189,
       191,
       192,
       193,
-      195,
+      194,
       196,
       197,
-      199,
+      198,
       200,
       201,
-      202
+      202,
+      203
     ]
   },
   "steps": [
@@ -412,7 +413,7 @@
       "env": {
         "self": {
           "type": "_lecture.Array",
-          "contents": "<_lecture.Array object at 0x0000029385B47080>"
+          "contents": "<_lecture.Array object at 0x00000232F14E3860>"
         },
         "value": {
           "type": "numpy.ndarray",
@@ -25052,7 +25053,7 @@
       "env": {
         "self": {
           "type": "_lecture.Array",
-          "contents": "<_lecture.Array object at 0x0000029386D2F0B0>"
+          "contents": "<_lecture.Array object at 0x00000232F23C9670>"
         },
         "value": {
           "type": "numpy.ndarray",
@@ -833496,7 +833497,7 @@
       "renderings": [
         {
           "type": "note",
-          "data": "This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress. With it we can be precise about what is exhausted: post-hoc abstention scores recover 1.5 of the 6.9 points, so that family is nearly spent, while 5.4 points remain open to a scorer that reads features. The 23 points of oracle error are a different quantity entirely - they sit in model discrimination and label ambiguity, and no ranking can remove them.",
+          "data": "This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress. With it we can be precise about what is exhausted: post-hoc scores recover 0.17 of the 6.5 points, ensembling adds the same 0.17, and a learned head another 0.40 - so that family is nearly spent, while about 5.7 points remain open to a scorer that reads features. The 23.6 points of oracle error are a different quantity entirely: they sit in model discrimination and label ambiguity, and no ranking can remove them.",
           "style": null,
           "external_link": null,
           "internal_link": null
@@ -833525,7 +833526,7 @@
         },
         {
           "path": "01_audit.py",
-          "line_number": 181,
+          "line_number": 182,
           "function_name": "closing",
           "source_line": "def closing() -> None:"
         }
@@ -833543,7 +833544,7 @@
         },
         {
           "path": "01_audit.py",
-          "line_number": 182,
+          "line_number": 183,
           "function_name": "closing",
           "source_line": "text(\"## What this means clinically\")"
         }
@@ -833569,7 +833570,7 @@
         },
         {
           "path": "01_audit.py",
-          "line_number": 183,
+          "line_number": 184,
           "function_name": "closing",
           "source_line": "text("
         }
@@ -833595,7 +833596,7 @@
         },
         {
           "path": "01_audit.py",
-          "line_number": 189,
+          "line_number": 190,
           "function_name": "closing",
           "source_line": "text("
         }
@@ -833621,7 +833622,7 @@
         },
         {
           "path": "01_audit.py",
-          "line_number": 194,
+          "line_number": 195,
           "function_name": "closing",
           "source_line": "text("
         }
@@ -833647,7 +833648,7 @@
         },
         {
           "path": "01_audit.py",
-          "line_number": 198,
+          "line_number": 199,
           "function_name": "closing",
           "source_line": "note("
         }

@@ -171,10 +171,11 @@ def state_4_budget() -> None:
     image(str(ROOT / "assets" / "fig4.png"), width=620)
     note(
         "This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress. "
-        "With it we can be precise about what is exhausted: post-hoc abstention scores recover 1.5 of "
-        "the 6.9 points, so that family is nearly spent, while 5.4 points remain open to a scorer that "
-        "reads features. The 23 points of oracle error are a different quantity entirely - they sit in "
-        "model discrimination and label ambiguity, and no ranking can remove them."
+        "With it we can be precise about what is exhausted: post-hoc scores recover 0.17 of the 6.5 points, "
+        "ensembling adds the same 0.17, and a learned head another 0.40 - so that family is nearly spent, "
+        "while about 5.7 points remain open to a scorer that reads features. The 23.6 points of oracle "
+        "error are a different quantity entirely: they sit in model discrimination and label ambiguity, "
+        "and no ranking can remove them."
     )
 
 
