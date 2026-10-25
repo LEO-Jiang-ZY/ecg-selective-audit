@@ -1,0 +1,14 @@
+# local preview build; docs/ is the published copy
+_site/
+
+# python
+__pycache__/
+*.py[cod]
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# lectrace build cache
+docs/.lectrace_cache.json

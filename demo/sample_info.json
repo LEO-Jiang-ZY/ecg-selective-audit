@@ -1,0 +1,17 @@
+{
+  "ecg_id": 63,
+  "confidence": 0.8308,
+  "true_labels": [
+    "MI"
+  ],
+  "predicted_labels": [
+    "MI"
+  ],
+  "probs": [
+    0.443,
+    0.6321,
+    0.0041,
+    0.0285,
+    0.0028
+  ]
+}

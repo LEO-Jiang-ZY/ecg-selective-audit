@@ -1,0 +1,12 @@
+{
+  "version": "2",
+  "traces": [
+    {
+      "id": "01_audit",
+      "title": "Calibration Is Not Enough",
+      "path": "traces/01_audit.json",
+      "step_count": 80,
+      "built_at": "2026-10-25T09:10:00.585086+00:00"
+    }
+  ]
+}
