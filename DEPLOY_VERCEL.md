@@ -3,7 +3,7 @@
 `https://tox21-error-risk-signals.vercel.app/` 这类地址来自 **Vercel**：把仓库连上去，
 它按你指定的输出目录做静态托管，自动签发 HTTPS 证书，并给出 `<项目名>.vercel.app` 域名。
 
-我们的情况不需要任何构建步骤：`docs/` 已经是 lectrace `build` 出来的成品，
+我们的情况不需要任何构建步骤：`site/` 已经是成品（首页 + `lectrace/` 子目录），
 所以 Vercel 只做一件事——把这个目录原样发出去。
 
 ---
@@ -19,10 +19,10 @@
    | Framework Preset | **Other** |
    | Root Directory | `./`（默认） |
    | Build Command | 留空（若显示为灰色 `npm run build`，点 **Override** 后清空） |
-   | Output Directory | **`docs`** |
+   | Output Directory | **`site`** |
    | Install Command | 留空 |
 
-   仓库根目录已有 `vercel.json`，其中写了 `"outputDirectory": "docs"` 与
+   仓库根目录已有 `vercel.json`，其中写了 `"outputDirectory": "site"` 与
    `"framework": null`，所以即使界面没读到，部署也会按这个走。
 
 4. **Deploy**。约 30 秒后得到 `https://ecg-selective-audit.vercel.app/`。
@@ -70,7 +70,7 @@ npx vercel@latest --prod     # 按 vercel.json 上传
 
 ---
 
-## 若要复刻同学的「首页 + 子路径演示」结构
+## 已经复刻成「首页 + 子路径演示」
 
 同学站点的组织形式是：
 
@@ -79,10 +79,18 @@ npx vercel@latest --prod     # 按 vercel.json 上传
 /lectrace/       lectrace 构建产物                     ← 交互演示
 ```
 
-我们目前把 `docs/` 直接当站点根，打开即演示。若要同样分两层，做法是：
+本仓库已按这个结构改好：
 
-1. 在仓库根新建一个 `site/index.html` 作为介绍页（可用海报内容改写）；
-2. 把 lectrace 产物放在 `site/lectrace/`；
-3. `vercel.json` 的 `outputDirectory` 改为 `"site"`。
+```
+site/index.html    介绍页（problem / method / 四张结果图 / 种子表 / demo 入口）
+site/styles.css    单文件样式，无框架
+site/assets/       五张图，来自 paper_figures 与 gap_decomposition
+site/lectrace/     lectrace 构建产物
+```
 
-这样 `https://<项目>.vercel.app/` 是介绍页，`/lectrace/` 是演示页。
+`vercel.json` 的 `outputDirectory` 已指向 `"site"`，因此：
+
+- `https://<项目>.vercel.app/` → 介绍页
+- `https://<项目>.vercel.app/lectrace/` → 交互演示
+
+重新生成演示部分时用 `lectrace build --output site/lectrace`，不要写到 `site/` 根目录。

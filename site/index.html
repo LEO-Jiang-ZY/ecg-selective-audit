@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Calibration Is Not Enough — A Three-Level Audit of Selective ECG Prediction</title>
+    <meta
+      name="description"
+      content="A reproducibility-focused audit of calibration, abstention scores and decision granularity for multi-label ECG triage on PTB-XL."
+    />
+    <meta name="theme-color" content="#4D77A7" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="mark">ECG</span>
+        <span>Selective Audit</span>
+      </a>
+      <nav>
+        <a href="#problem">Problem</a>
+        <a href="#method">Method</a>
+        <a href="#results">Results</a>
+        <a href="#seeds">Seeds</a>
+        <a class="nav-demo" href="lectrace/">Interactive demo</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <p class="eyebrow">MD6329 Deep Learning · Nanyang Technological University</p>
+        <h1>Calibration Is Not Enough</h1>
+        <p class="subtitle">
+          A three-level audit of selective prediction for multi-label ECG classification
+        </p>
+        <p class="lede">
+          A model whose expected calibration error improves by a factor of 3.5 produces an
+          almost identical risk–coverage curve. On PTB-XL, the score layer has a budget of
+          6.9 points; what changes triage is the decision unit, not the score.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="lectrace/">Open the interactive demo</a>
+          <a class="btn ghost" href="#results">See the results</a>
+        </div>
+        <p class="byline">Zhengyu · Supervisor: [Supervisor] · PTB-XL v1.0.3</p>
+      </section>
+
+      <section class="stats" aria-label="Key numbers">
+        <div class="stat">
+          <span class="value accent-blue">3.5×</span>
+          <span class="label">ECE, 0.0238 → 0.0068</span>
+        </div>
+        <div class="stat">
+          <span class="value accent-rose">0.1900 → 0.1914</span>
+          <span class="label">AURC on fold 10</span>
+        </div>
+        <div class="stat">
+          <span class="value accent-rose">30.98 → 31.23 %</span>
+          <span class="label">Accepted error at 80 % coverage</span>
+        </div>
+        <div class="stat">
+          <span class="value accent-teal">6.9 pp</span>
+          <span class="label">Total budget of any abstention score</span>
+        </div>
+      </section>
+
+      <section id="problem" class="section">
+        <div class="section-head">
+          <p class="kicker">01 · Problem</p>
+          <h2>Triage is a ranking problem, not a probability problem</h2>
+        </div>
+        <div class="two-col">
+          <div>
+            <p>
+              Twelve-lead ECG interpretation is high-volume and unevenly distributed across
+              readers. The realistic role for a model is a <strong>triage filter</strong>: it
+              signs off on the records it is sure about and routes the rest to a clinician.
+            </p>
+            <p>
+              The quantity that matters in that role is the error rate <em>among issued
+              records</em>, not average AUROC. Yet the standard report pairs a discrimination
+              metric with a calibration metric, and treats good calibration as evidence that
+              confidence can be trusted to decide when to abstain.
+            </p>
+          </div>
+          <aside class="callout">
+            <p class="callout-title">The assumption under test</p>
+            <p>
+              A monotone post-hoc map changes the number attached to a prediction. Triage
+              needs the <em>ordering</em> of records. Those are different objects.
+            </p>
+            <p class="callout-note">Measured: 0.0014 AURC, 0.25 pp accepted error.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section id="method" class="section alt">
+        <div class="section-head">
+          <p class="kicker">02 · Method</p>
+          <h2>One model, three levels of intervention</h2>
+        </div>
+        <figure class="figure wide">
+          <img src="assets/pipeline.png" alt="Pipeline: data, model, calibrated scores, three-level audit, decision and reported quantities" />
+          <figcaption>
+            Trained once on folds 1–8. Temperature <em>T</em>, threshold τ and the correctness
+            head are fitted on fold 9 and applied once to fold 10.
+          </figcaption>
+        </figure>
+        <div class="cards">
+          <article class="card">
+            <h3>L1 · Calibration</h3>
+            <p>
+              Temperature scaling on the probability scale. Reliability diagram, ECE, NLL,
+              Brier. Changes the value of a probability, not the ranking it induces.
+            </p>
+          </article>
+          <article class="card">
+            <h3>L2 · Abstention score</h3>
+            <p>
+              Mean entropy, mean maximum probability, all-correct probability. Changes the
+              ordering of records, and therefore the frontier itself.
+            </p>
+          </article>
+          <article class="card">
+            <h3>L3 · Granularity</h3>
+            <p>
+              Decide per record or per label. Not two implementations of one policy, but two
+              clinical workflows with different achievable operating points.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="results" class="section">
+        <div class="section-head">
+          <p class="kicker">03 · Results</p>
+          <h2>What moves the frontier, and what only looks like it does</h2>
+        </div>
+        <div class="grid">
+          <figure class="figure">
+            <img src="assets/calibration.png" alt="Reliability diagram and risk–coverage curves before and after temperature scaling" />
+            <figcaption>
+              <strong>L1.</strong> Reliability moves onto the diagonal; the risk–coverage
+              curves stay superimposed (AURC 0.1900 vs 0.1914).
+            </figcaption>
+          </figure>
+          <figure class="figure">
+            <img src="assets/budget.png" alt="Stacked error budget: oracle floor, score budget, observed risk" />
+            <figcaption>
+              <strong>Budget.</strong> At 80 % coverage even a perfect ordering leaves 23.1 %
+              error; every score has 6.9 points to play with.
+            </figcaption>
+          </figure>
+          <figure class="figure">
+            <img src="assets/granularity.png" alt="Label-level coverage against label-level error" />
+            <figcaption>
+              <strong>L3.</strong> Label-level abstention halves label error (9.90 % → 5.61 %),
+              but only 39.8 % of records can be issued in full.
+            </figcaption>
+          </figure>
+          <figure class="figure">
+            <img src="assets/subgroups.png" alt="Accepted error by age, quality, sex and device subgroup" />
+            <figcaption>
+              <strong>Subgroups.</strong> Age 16.3 % (18–44) versus 40.6 % (65–89): a 24-point
+              gap, twenty times any score gain.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="seeds" class="section alt">
+        <div class="section-head">
+          <p class="kicker">04 · Replication</p>
+          <h2>The sign repeats in every seed</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Seed</th><th>T</th><th>Coverage</th><th>Baseline error</th>
+                <th>Calibrated error</th><th>Δ</th><th>Macro AUROC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>42</td><td>1.1868</td><td>79.62 %</td><td>30.96 %</td><td>31.14 %</td><td class="up">+0.18</td><td>0.9076</td></tr>
+              <tr><td>43</td><td>1.2446</td><td>78.30 %</td><td>29.44 %</td><td>29.81 %</td><td class="up">+0.37</td><td>0.9082</td></tr>
+              <tr><td>44</td><td>1.1693</td><td>80.66 %</td><td>31.35 %</td><td>31.81 %</td><td class="up">+0.46</td><td>0.9083</td></tr>
+              <tr class="mean"><td>mean</td><td>—</td><td>79.53 %</td><td>30.58 %</td><td>30.92 %</td><td>+0.34 ± 0.14</td><td>0.9080</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">
+          Macro AUROC moves by 0.0004 across seeds while the abstention decision moves by
+          2.4 points of coverage: seed variance lives in the decision, not in the classifier.
+        </p>
+      </section>
+
+      <section class="demo" id="demo">
+        <div class="demo-inner">
+          <div>
+            <p class="kicker light">05 · Interactive</p>
+            <h2>Watch one record go through the audit</h2>
+            <p>
+              The deck is a Python script, not a slide file. Each step is executed and
+              rendered live: tensor shapes, a real forward pass, the temperature fit, and the
+              three-tier error budget. Eighty steps, four execution states, arrow keys only.
+            </p>
+          </div>
+          <a class="btn solid" href="lectrace/">Launch the deck →</a>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <p class="kicker">06 · Take-home</p>
+          <h2>What to report instead of a single number</h2>
+        </div>
+        <ol class="takeaway">
+          <li><strong>Calibration ≠ selective reliability.</strong> ECE can improve 3.5× while the frontier does not move.</li>
+          <li><strong>The score layer has a small, measurable budget.</strong> 6.9 points at 80 % coverage; measured gains take 1.1 of them.</li>
+          <li><strong>Granularity changes what triage can do.</strong> Record-level and label-level are different workflows, not two settings.</li>
+          <li><strong>Report a frontier, an error target and a decision unit.</strong> One coverage point is not enough to specify a system.</li>
+        </ol>
+        <p class="limits">
+          Limits: single centre, one architecture family; thresholds tuned on all of fold 9;
+          no external validation. All numbers are empirical, not conformal guarantees.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Data: PTB-XL v1.0.3 (Wagner et al., <em>Scientific Data</em> 2020) ·
+        Model: ECGResNet1D, 51,429 parameters · Bootstrap: patient-level, 1,000 resamples
+      </p>
+      <p class="foot-right">
+        <a href="lectrace/">Demo</a> ·
+        <a href="https://github.com/LEO-Jiang-ZY/ecg-selective-audit">Source</a> ·
+        Nanyang Technological University · 2026
+      </p>
+    </footer>
+  </body>
+</html>

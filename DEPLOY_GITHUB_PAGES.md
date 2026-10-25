@@ -25,7 +25,7 @@
 1. 打开 GitHub Desktop → 顶部应显示 `1 commit to push` → 点 **Push origin**。
    推送完成后刷新仓库页面，应能看到 79 个文件（含 `docs/`）。
 2. 仓库页 → **Settings → Pages** → Source: **Deploy from a branch**
-   → Branch **main**，目录 **/docs** → **Save**。
+   → Branch **main**，目录 **/site** → **Save**。
 
 ### 正确网址（两个域名不要混）
 
@@ -47,10 +47,10 @@
 
 已完成的验证：
 
-- `docs/` 内全部为相对路径（`./assets/…`、`./traces/index.json`），可在
+- `site/lectrace/` 内全部为相对路径（`./assets/…`、`./traces/index.json`），可在
   `https://<用户名>.github.io/<仓库名>/` 这样的**子路径**下正常加载；
 - 本地以父目录起服务模拟子路径部署，`index.html`、`traces/index.json`、1.5 MB 的主 JS 均返回 200；
-- `docs/.nojekyll` 已放置，避免 GitHub Pages 的 Jekyll 处理干扰静态资源。
+- `site/.nojekyll` 已放置，避免 GitHub Pages 的 Jekyll 处理干扰静态资源。
 
 ### 剩余步骤：GitHub Desktop 里 6 步
 
@@ -90,7 +90,7 @@ lectrace 的页面内容来自**执行轨迹**（JSON），而轨迹是跑脚本
 | | 方案 A：本地构建，推送静态文件 | 方案 B：GitHub Actions 自动构建 |
 |---|---|---|
 | 谁跑 Python | 你的电脑 | GitHub 的服务器 |
-| 需要上传什么 | `docs/`（26 MB 静态文件） | 源码 + 数据 + 模型权重 |
+| 需要上传什么 | `site/`（首页 + 26 MB 演示产物） | 源码 + 数据 + 模型权重 |
 | 需要 CI 装 PyTorch | 不需要 | 需要（约 2–3 分钟下载，CPU 版） |
 | 改内容后 | 本地重新 build → push | 直接 push，自动重建 |
 | 适合 | **本项目推荐**（只有一讲，内容稳定） | 多讲、频繁更新、想让别人一键复现 |

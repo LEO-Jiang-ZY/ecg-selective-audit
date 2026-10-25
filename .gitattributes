@@ -5,3 +5,6 @@
 *.woff binary
 *.woff2 binary
 *.ttf binary
+
+# 23 MB generated trace: keep bytes as produced by lectrace
+site/lectrace/traces/*.json -text

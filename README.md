@@ -12,15 +12,21 @@ paper's results.
 
 ## Live site
 
-GitHub Pages serves the prebuilt deck from `docs/`:
+The site has two layers, both static:
+
+| Path | What it is |
+|---|---|
+| `/` | project landing page — problem, method, four figures, seed table |
+| `/lectrace/` | the executable deck |
+
 
 ```
 https://<your-username>.github.io/<repo-name>/
 ```
 
-Open it full screen, then use the arrow keys to advance. There is nothing to
-install and no runtime dependency — `docs/` is pure static HTML, CSS, JS and
-JSON.
+Open `/lectrace/` full screen, then use the arrow keys to advance. There is
+nothing to install and no runtime dependency — `site/` is pure static HTML,
+CSS, JS and JSON.
 
 ## What the four execution states show
 
@@ -40,9 +46,15 @@ Eighty steps in total; the speaker notes attached to each step are reproduced in
 01_audit.py              the deck itself (single file, plain Python)
 demo/                    frozen inputs: one ECG record, test logits
 assets/                  figures reused inside the deck
-docs/                    prebuilt static site — this is what Pages serves
+site/                    published site root
+  index.html             project landing page
+  styles.css             one stylesheet, no framework
+  assets/                five figures used by the landing page
+  lectrace/              prebuilt deck (HTML + JS + trace JSON)
+vercel.json              deploy config: output directory is site/
 SPEAKER_SCRIPT.md        10-minute script with per-slide timing
-DEPLOY_GITHUB_PAGES.md   how this site is built and published
+DEPLOY_VERCEL.md         Vercel deployment (recommended)
+DEPLOY_GITHUB_PAGES.md   GitHub Pages alternative
 ```
 
 `_site/` is a local preview build and is git-ignored.
@@ -53,7 +65,7 @@ DEPLOY_GITHUB_PAGES.md   how this site is built and published
 python -m pip install lectrace
 cd lecture
 lectrace run 01_audit.py          # check every step executes
-lectrace build --output docs      # regenerate the published site
+lectrace build --output site/lectrace   # regenerate the deck
 ```
 
 The deck reads only files in `demo/`, so it does not need the 1 GB PTB-XL

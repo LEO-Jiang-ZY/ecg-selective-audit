@@ -1,4 +1,4 @@
-# local preview build; docs/ is the published copy
+# local preview build; site/ is the published copy
 _site/
 
 # python
@@ -11,4 +11,4 @@ Thumbs.db
 desktop.ini
 
 # lectrace build cache
-docs/.lectrace_cache.json
+site/lectrace/.lectrace_cache.json
