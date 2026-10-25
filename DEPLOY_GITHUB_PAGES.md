@@ -8,7 +8,39 @@
 
 ---
 
-## 当前状态（2026-10-25）：仓库就绪，只剩点击发布
+## 当前状态（2026-10-25 18:00）：仓库已建、已提交，待推送与开启 Pages
+
+| 项 | 状态 |
+|---|---|
+| GitHub 账号 | `LEO-Jiang-ZY`（存在） |
+| 远程仓库 | `github.com/LEO-Jiang-ZY/ecg-selective-audit`（public，**当前为空**） |
+| 本地提交 | 已创建 `30efaf3`，79 个文件，等待 push |
+| Pages | **未开启**（`has_pages: false`） |
+
+**关键教训**：先点 Publish 但本地没有 commit，GitHub 只会建一个空仓库（`size: 0`），
+文件并不会上传。必须**先 Commit，再 Push**。
+
+### 现在只剩两步
+
+1. 打开 GitHub Desktop → 顶部应显示 `1 commit to push` → 点 **Push origin**。
+   推送完成后刷新仓库页面，应能看到 79 个文件（含 `docs/`）。
+2. 仓库页 → **Settings → Pages** → Source: **Deploy from a branch**
+   → Branch **main**，目录 **/docs** → **Save**。
+
+### 正确网址（两个域名不要混）
+
+| 用途 | 地址 |
+|---|---|
+| 仓库页（代码） | `https://github.com/LEO-Jiang-ZY/ecg-selective-audit` |
+| 演示页（Pages） | `https://LEO-Jiang-ZY.github.io/ecg-selective-audit/` |
+
+常见错误：把两者拼成 `github.com/LEO-Jiang-ZY.github.io/...` —— `github.com` 后面
+只能是**用户名**，不能带 `.github.io`；而 `LEO-Jiang-ZY.github.io` 本身就是域名，
+前面不再加 `github.com/`。
+
+---
+
+## 早期记录：仓库就绪，只剩点击发布
 
 `D:/iAIM/lecture` 已经是 git 仓库（分支 `main`），**79 个文件已全部暂存（staged）**，
 `_site/`、`docs/.lectrace_cache.json` 已写入 `.gitignore`。**不需要再执行任何 git 命令。**
