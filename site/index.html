@@ -25,6 +25,7 @@
         <a href="#method">Method</a>
         <a href="#results">Results</a>
         <a href="#seeds">Seeds</a>
+        <a href="assets/paper.pdf" target="_blank" rel="noopener">Paper</a>
         <a class="nav-demo" href="lectrace/">Interactive demo</a>
       </nav>
     </header>
@@ -39,10 +40,11 @@
         <p class="lede">
           A model whose expected calibration error improves by a factor of 3.5 produces an
           almost identical risk–coverage curve. On PTB-XL, the score layer has a budget of
-          6.9 points; what changes triage is the decision unit, not the score.
+          6.5 points; what changes triage is the decision unit, not the score.
         </p>
         <div class="actions">
           <a class="btn primary" href="lectrace/">Open the interactive demo</a>
+          <a class="btn ghost" href="assets/paper.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a>
           <a class="btn ghost" href="#results">See the results</a>
         </div>
         <p class="byline">Zhengyu Jiang · MSc AI in Medicine, Nanyang Technological University · PTB-XL v1.0.3</p>
@@ -62,7 +64,7 @@
           <span class="label">Accepted error at 80 % coverage</span>
         </div>
         <div class="stat">
-          <span class="value accent-teal">6.9 pp</span>
+          <span class="value accent-teal">6.5 pp</span>
           <span class="label">Total budget of any abstention score</span>
         </div>
       </section>
@@ -150,8 +152,8 @@
           <figure class="figure">
             <img src="assets/budget.png" alt="Stacked error budget: oracle floor, score budget, observed risk" />
             <figcaption>
-              <strong>Budget.</strong> At 80 % coverage even a perfect ordering leaves 23.1 %
-              error; every score has 6.9 points to play with.
+              <strong>Budget.</strong> At 80 % coverage even a perfect ordering leaves 23.6 %
+              error; the best post-hoc score recovers 2.6% of what is left.
             </figcaption>
           </figure>
           <figure class="figure">
@@ -209,7 +211,10 @@
               three-tier error budget. Eighty steps, four execution states, arrow keys only.
             </p>
           </div>
-          <a class="btn solid" href="lectrace/">Launch the deck →</a>
+          <div class="cta-stack">
+            <a class="btn solid" href="lectrace/">Launch the deck →</a>
+            <a class="btn solid outline" href="assets/paper.pdf" target="_blank" rel="noopener">Read the paper (PDF)</a>
+          </div>
         </div>
       </section>
 
@@ -220,7 +225,7 @@
         </div>
         <ol class="takeaway">
           <li><strong>Calibration ≠ selective reliability.</strong> ECE can improve 3.5× while the frontier does not move.</li>
-          <li><strong>The score layer has a small, measurable budget.</strong> 6.9 points at 80 % coverage; measured gains take 1.1 of them.</li>
+          <li><strong>The score layer has a small, measurable budget.</strong> 6.5 points at 80 % coverage; the best post-hoc score recovers 2.6% of it.</li>
           <li><strong>Granularity changes what triage can do.</strong> Record-level and label-level are different workflows, not two settings.</li>
           <li><strong>Report a frontier, an error target and a decision unit.</strong> One coverage point is not enough to specify a system.</li>
         </ol>
@@ -237,6 +242,7 @@
         Model: ECGResNet1D, 51,429 parameters · Bootstrap: patient-level, 1,000 resamples
       </p>
       <p class="foot-right">
+        <a href="assets/paper.pdf" target="_blank" rel="noopener">Paper</a> ·
         <a href="lectrace/">Demo</a> ·
         <a href="https://github.com/LEO-Jiang-ZY/ecg-selective-audit">Source</a> ·
         MSc AI in Medicine, NTU · MD6329 Mini Project · 2026

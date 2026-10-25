@@ -423,3 +423,17 @@ footer p { margin: 0; max-width: 62ch; }
   .stats { grid-template-columns: 1fr; }
   .topbar { padding: 12px 20px; }
 }
+
+/* ---------- demo CTA: stacked buttons ---------- */
+.cta-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 230px;
+}
+.btn.solid.outline {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+}
+.btn.solid.outline:hover { background: rgba(255, 255, 255, 0.16); }
