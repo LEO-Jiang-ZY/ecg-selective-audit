@@ -165,13 +165,16 @@ def state_4_budget() -> None:
     )
     text(
         f"The entire budget available to any abstention score is **{100 * budget:.1f} percentage points**. "
-        "Switching entropy → max-prob recovers 1.1 of them; a learned correctness head adds 0.4 more, within noise."
+        "Post-hoc scores recover 1.1 of them; a learned head adds 0.4 more, within noise. "
+        "The rest needs a scorer that reads the model's internals, not its probabilities."
     )
     image(str(ROOT / "assets" / "fig4.png"), width=620)
     note(
-        "This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress; "
-        "with it, we can say the score layer is nearly exhausted and the remaining 23 points sit in "
-        "model discrimination and label ambiguity."
+        "This is the pivot of the talk. Without a budget, a 1-point improvement looks like progress. "
+        "With it we can be precise about what is exhausted: post-hoc abstention scores recover 1.5 of "
+        "the 6.9 points, so that family is nearly spent, while 5.4 points remain open to a scorer that "
+        "reads features. The 23 points of oracle error are a different quantity entirely - they sit in "
+        "model discrimination and label ambiguity, and no ranking can remove them."
     )
 
 
